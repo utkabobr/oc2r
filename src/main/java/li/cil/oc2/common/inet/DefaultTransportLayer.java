@@ -43,7 +43,7 @@ public final class DefaultTransportLayer implements TransportLayer {
     private final SessionReceiver receiver = new SessionReceiver();
 
     private final NavigableMap<Instant, SessionBase> expirationQueue = new TreeMap<>();
-    private StreamSessionImpl streamToAck = null;
+    private final Queue<StreamSessionImpl> ackQueue = new ArrayDeque<>();
     private final Map<SessionDiscriminator<?>, SessionBase> sessions = new HashMap<>();
 
     private ICMPReply icmpReply = null;
@@ -248,19 +248,21 @@ public final class DefaultTransportLayer implements TransportLayer {
                 return PROTOCOL_ICMP;
             }
 
-            if (streamToAck != null) {
-                final StreamSessionImpl stream = streamToAck;
-                streamToAck = null;
+            while (!ackQueue.isEmpty()) {
+                StreamSessionImpl stream = ackQueue.poll();
                 updateSession(stream);
+                boolean ok = false;
                 switch (prepareTCPSegment(message, stream)) {
                     case FORWARD -> {
-                        if (stream.isClosed()) {
-                            closeSession(stream);
-                        }
-                        return PROTOCOL_TCP;
+                        if (stream.isClosed()) closeSession(stream);
+                        ok = true;
                     }
-                    case DROP -> closeSession(stream);
+                    case DROP -> {
+                        closeSession(stream);
+                        ok = false;
+                    }
                 }
+                if (ok) return PROTOCOL_TCP;
             }
             /*
             final StreamSessionImpl retransmitSession = getNextStreamForRetransmission();
@@ -460,7 +462,7 @@ public final class DefaultTransportLayer implements TransportLayer {
                                 rejectedStream = session;
                             }
                             if (session.isNeedsAcknowledgment()) {
-                                streamToAck = session;
+                                ackQueue.add(session);
                             }
                         }
                         case DROP -> closeSession(session);

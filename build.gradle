@@ -32,23 +32,31 @@ gradle.projectsEvaluated {
 
         targets.each { path ->
             def file = new File(nativeLibsDir, path)
-            file.parentFile.mkdirs()
-            def fileName = path.tokenize('/')[-1]
-            def url = new URL("${nativeNetworkingBaseUrl}${fileName}")
-            println "Downloading ${url} → ${file}"
-            file.withOutputStream { out ->
-                url.openStream().withCloseable { IOUtils.copy(it, out) }
+            if (!file.exists()) {
+                file.parentFile.mkdirs()
+                def fileName = path.tokenize('/')[-1]
+                def url = new URL("${nativeNetworkingBaseUrl}${fileName}")
+                println "Downloading ${url} → ${file}"
+                file.withOutputStream { out ->
+                    url.openStream().withCloseable { IOUtils.copy(it, out) }
+                }
+            } else {
+                println "Up-to-date: ${file}"
             }
         }
 
         // senda
         def sednaUrl = "https://github.com/${senda_repo}/releases/download/${minecraft_version}-${minecraft_sdk}/${sedna_version}/sedna-${minecraft_version}-${minecraft_sdk}-${sedna_version}+${sedna_version_commit_ref}.jar"
         def sednaFile = new File('libs', 'sedna.jar')
-        sednaFile.parentFile.mkdirs()
-        def url = new URL("${sednaUrl}")
-        println "Downloading ${url} → ${sednaFile}"
-        sednaFile.withOutputStream { out ->
-            url.openStream().withCloseable { IOUtils.copy(it, out) }
+        if (!sednaFile.exists()) {
+            sednaFile.parentFile.mkdirs()
+            def url = new URL("${sednaUrl}")
+            println "Downloading ${url} → ${sednaFile}"
+            sednaFile.withOutputStream { out ->
+                url.openStream().withCloseable { IOUtils.copy(it, out) }
+            }
+        } else {
+            println "Up-to-date: ${sednaFile}"
         }
     }
 }
